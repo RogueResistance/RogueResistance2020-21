@@ -31,6 +31,7 @@ public class TeleOP extends OpMode {
     boolean shotMode = false;
     ElapsedTime timer = new ElapsedTime();
     boolean servoMoving = false;
+    DcMotorEx[] motors;
     //double initialAngle = currentAngle();
     @Override
     public void init() {
@@ -77,6 +78,8 @@ public class TeleOP extends OpMode {
         imu.initialize(parameters);
         runtime = new ElapsedTime();
         reverse = false;
+        
+        motors = new DcMotorEx[] {leftFront,rightFront,leftBack,rightBack};
     }
 
 
@@ -160,11 +163,79 @@ public class TeleOP extends OpMode {
         }
     }
     
-    public void powerShots(){
+    public void powerShots(){ //needs testing
         if(gamepad1.start){
-            //use bettermovebot if possible. WIP
+            moveBot(1,2,2,1,44,.6,false); //will be to better movement updated later
+            shooter.setPower(-shooterPower);
+            flicker.setPosition(0);
+            flicker.setPosition(0.7);
+            shooter.setPower(0);
+            moveBot(1,2,2,1,8,.6,false); //will be updated to better movement later
+            shooter.setPower(-shooterPower);
+            flicker.setPosition(0);
+            flicker.setPosition(0.7);
+            shooter.setPower(0);
+            moveBot(1,2,2,1,8,.6,false); //will be updated to better movement later
+            shooter.setPower(-shooterPower);
+            flicker.setPosition(0);
+            flicker.setPosition(0.7);
+            shooter.setPower(0);
         }
     }
+    
+    public void moveBot(int leftT, int rightT, int leftB, int rightB, int distance, double power, boolean withIntake) throws InterruptedException{
+        //moveBot(1, 1, 2, 2, -24, .60, true); //Forwward
+        //turnBot(2, 2, 1, 1, -24, .60); //Backward
+        //turnBot(2, 1, 2, 1, 30, .60); //Strafe right
+        //turnBot(1, 2, 1, 2, 0, .6) /Strafe left
+        if (leftT == 1) {
+            leftFront.setDirection(DcMotor.Direction.FORWARD);
+        } else if(leftT == 2){
+            leftFront.setDirection(DcMotor.Direction.REVERSE);
+        }
+
+        if (leftB == 1) {
+            leftBack.setDirection(DcMotor.Direction.FORWARD);
+        } else if(leftB == 2){
+            leftBack.setDirection(DcMotor.Direction.REVERSE);
+        }
+
+        if (rightT == 2) {
+            rightFront.setDirection(DcMotor.Direction.FORWARD);
+        } else if(rightT == 1){
+            rightFront.setDirection(DcMotor.Direction.REVERSE);
+        }
+
+        if (rightB == 2) {
+            rightBack.setDirection(DcMotor.Direction.FORWARD);
+        } else if(rightT == 1){
+            rightBack.setDirection(DcMotor.Direction.REVERSE);
+        }
+
+        /*if(withIntake) {
+            while (shooterTime.milliseconds() <= 5000) {
+                intake.setPower(.5);
+                transfer.setPower(1);
+                heartbeat();
+            }
+        }*/
+
+        //Moves the robot
+        int travel = (int)(distance * TPI);
+        for (DcMotorEx motor : motors) {
+            motor.setTargetPosition(travel);
+            motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            motor.setPower(power);
+            motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        }
+        //This is what checks if the motors are supposed to be still running.
+        while (leftFront.isBusy() && rightFront.isBusy() && leftBack.isBusy() && rightBack.isBusy()) {
+            heartbeat();
+        }
+        //intake.setPower(0);
+        // transfer.setPower(0);
+    }
+
  
     public void powerShot(){ // lowers flywheel speed
         if(gamepad1.dpad_left && !shotMode){
