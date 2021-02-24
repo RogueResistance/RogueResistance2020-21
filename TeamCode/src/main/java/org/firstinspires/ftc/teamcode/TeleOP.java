@@ -21,6 +21,9 @@ public class TeleOP extends OpMode {
     boolean previousB = false;
     boolean currentRB = false;
     boolean previousRB = false;
+    boolean clawState = false;
+    boolean flicktime = false;
+    double armPos = 0;
     private Servo claw, flicker, holder; //claw, flicker, holder
     boolean reverse;
     int reverseFactor;
@@ -29,9 +32,15 @@ public class TeleOP extends OpMode {
     private double servo;
     double shooterPower = .80;
     boolean shotMode = false;
+    boolean clawReady = false;
     ElapsedTime timer = new ElapsedTime();
+    ElapsedTime clawmove = new ElapsedTime();
+    ElapsedTime flick = new ElapsedTime();
     boolean servoMoving = false;
-    DcMotorEx[] motors;
+    boolean armmove = false;
+    final static double dropWobbleTime = 1000;
+
+
     //double initialAngle = currentAngle();
     @Override
     public void init() {
@@ -78,8 +87,6 @@ public class TeleOP extends OpMode {
         imu.initialize(parameters);
         runtime = new ElapsedTime();
         reverse = false;
-        
-        motors = new DcMotorEx[] {leftFront,rightFront,leftBack,rightBack};
     }
 
 
@@ -90,8 +97,7 @@ public class TeleOP extends OpMode {
         //int power = (DcMotorSimple) arm.getPower();
 
 
-        if(gamepad1.dpad_up)
-            reverse = !reverse;
+
 
         //toggles precision mode if the right stick button is pressed
 
@@ -134,10 +140,10 @@ public class TeleOP extends OpMode {
 // for jon in jon on jon
 
         //Updating the power of the motors
-       /* arm.setPower(power);
-        shooter.setPower(power);
-        intake.setPower(power);
-        transfer.setPower(power); */
+ /* arm.setPower(power);
+ shooter.setPower(power);
+ intake.setPower(power);
+ transfer.setPower(power); */
 
         //Reset the intake and transfer encoders
         precisionMode(); //check for precision mode
@@ -145,7 +151,6 @@ public class TeleOP extends OpMode {
         powerShot(); // toggles speed mode for flywheel
         revShoot(); // controls flywheel
         toggleIntake(); // controls intake, on off backwards
-        toggleClaw(); // toggles claw
         flickRing(); // toggles flicker
         toggleHolder(); // toggles intake clip
 
@@ -162,87 +167,13 @@ public class TeleOP extends OpMode {
             shooter.setPower(0);
         }
     }
-    
-    public void powerShots(){ //needs testing
-        if(gamepad1.start){
-            moveBot(1,2,2,1,44,.6,false); //will be to better movement updated later
-            shooter.setPower(-shooterPower);
-            flicker.setPosition(0);
-            flicker.setPosition(0.7);
-            shooter.setPower(0);
-            moveBot(1,2,2,1,8,.6,false); //will be updated to better movement later
-            shooter.setPower(-shooterPower);
-            flicker.setPosition(0);
-            flicker.setPosition(0.7);
-            shooter.setPower(0);
-            moveBot(1,2,2,1,8,.6,false); //will be updated to better movement later
-            shooter.setPower(-shooterPower);
-            flicker.setPosition(0);
-            flicker.setPosition(0.7);
-            shooter.setPower(0);
-        }
-    }
-    
-    public void moveBot(int leftT, int rightT, int leftB, int rightB, int distance, double power, boolean withIntake) throws InterruptedException{
-        //moveBot(1, 1, 2, 2, -24, .60, true); //Forwward
-        //turnBot(2, 2, 1, 1, -24, .60); //Backward
-        //turnBot(2, 1, 2, 1, 30, .60); //Strafe right
-        //turnBot(1, 2, 1, 2, 0, .6) /Strafe left
-        if (leftT == 1) {
-            leftFront.setDirection(DcMotor.Direction.FORWARD);
-        } else if(leftT == 2){
-            leftFront.setDirection(DcMotor.Direction.REVERSE);
-        }
 
-        if (leftB == 1) {
-            leftBack.setDirection(DcMotor.Direction.FORWARD);
-        } else if(leftB == 2){
-            leftBack.setDirection(DcMotor.Direction.REVERSE);
-        }
-
-        if (rightT == 2) {
-            rightFront.setDirection(DcMotor.Direction.FORWARD);
-        } else if(rightT == 1){
-            rightFront.setDirection(DcMotor.Direction.REVERSE);
-        }
-
-        if (rightB == 2) {
-            rightBack.setDirection(DcMotor.Direction.FORWARD);
-        } else if(rightT == 1){
-            rightBack.setDirection(DcMotor.Direction.REVERSE);
-        }
-
-        /*if(withIntake) {
-            while (shooterTime.milliseconds() <= 5000) {
-                intake.setPower(.5);
-                transfer.setPower(1);
-                heartbeat();
-            }
-        }*/
-
-        //Moves the robot
-        int travel = (int)(distance * TPI);
-        for (DcMotorEx motor : motors) {
-            motor.setTargetPosition(travel);
-            motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-            motor.setPower(power);
-            motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        }
-        //This is what checks if the motors are supposed to be still running.
-        while (leftFront.isBusy() && rightFront.isBusy() && leftBack.isBusy() && rightBack.isBusy()) {
-            heartbeat();
-        }
-        //intake.setPower(0);
-        // transfer.setPower(0);
-    }
-
- 
     public void powerShot(){ // lowers flywheel speed
         if(gamepad1.dpad_left && !shotMode){
             shooterPower = .81;
             shotMode = true;
         } else if(gamepad1.dpad_right && shotMode){
-            shooterPower = .67; 
+            shooterPower = .61;
             shotMode = false;
         }
     }
@@ -263,25 +194,55 @@ public class TeleOP extends OpMode {
     }
 
     public void flickRing(){ // controls flicker
-  /*      if (gamepad1.a && !servoMoving) {
-            timer.reset();
-            flicker.setPosition(1);
-            servoMoving = true;
-        }
-        if (timer.milliseconds() >= 850 && servoMoving) {
-            timer.reset();
-            flicker.setPosition(0);
-            servoMoving = false;
-        }
+ /* if (gamepad1.a && !servoMoving) {
+ timer.reset();
+ flicker.setPosition(1);
+ servoMoving = true;
+ }
+ if (timer.milliseconds() >= 850 && servoMoving) {
+ timer.reset();
+ flicker.setPosition(0);
+ servoMoving = false;
+ }
 */
-        if(gamepad1.a)
+  /*      if(gamepad1.a)
         {
-            flicker.setPosition(0);
+            flicker.setPosition(.35);
         }
         else
         {
-            flicker.setPosition(.7);
+            flicker.setPosition(.64);
         } // use this code if the above code refuses to work.
+*/
+        if (gamepad1.a){
+           flick.reset();
+
+           flicktime = true;
+        }
+        if(flicktime){
+            if(flick.milliseconds() > 0 && flick.milliseconds() < 250){
+                flicker.setPosition(.35);
+            }
+            if(flick.milliseconds() > 300 && flick.milliseconds() < 550){
+                flicker.setPosition(.64);
+            }
+            if(flick.milliseconds() > 600 && flick.milliseconds() < 850){
+                flicker.setPosition(.35);
+            }
+            if(flick.milliseconds() > 900 && flick.milliseconds() < 1150){
+                flicker.setPosition(.64);
+            }
+            if(flick.milliseconds() > 1200 && flick.milliseconds() < 1450){
+                flicker.setPosition(.35);
+            }
+            if(flick.milliseconds() > 1500){
+                flicker.setPosition(.64);
+                flicktime = false;
+            }
+
+
+        }
+
 
     }
     public void precisionMode(){ // controls precision mode
@@ -293,80 +254,111 @@ public class TeleOP extends OpMode {
         }
     }
 
-//    public void snapBot(){
-//        if(gamepad1.back){
-//            while(Math.abs(currentAngle()-initialAngle)>=5){
-//                if(currentAngle()-initialAngle>0){
-//                    leftFront.setDirection(DcMotor.Direction.FORWARD);
-//                    leftBack.setDirection(DcMotor.Direction.FORWARD);
-//                    rightFront.setDirection(DcMotor.Direction.FORWARD);
-//                    rightBack.setDirection(DcMotor.Direction.FORWARD);
-//                    leftFront.setPower(.1);
-//                    leftBack.setPower(.1);
-//                    rightFront.setPower(.1);
-//                    rightBack.setPower(.1);
-//                }
-//                else{
-//                    leftFront.setDirection(DcMotor.Direction.REVERSE);
-//                    leftBack.setDirection(DcMotor.Direction.REVERSE);
-//                    rightFront.setDirection(DcMotor.Direction.REVERSE);
-//                    rightBack.setDirection(DcMotor.Direction.REVERSE);
-//                    leftFront.setPower(.1);
-//                    leftBack.setPower(.1);
-//                    rightFront.setPower(.1);
-//                    rightBack.setPower(.1);
-//                }
-//            }
-//        }
-//    }
-
-    public void toggleClaw(){ // toggles claw WORKS
+// public void snapBot(){
+// if(gamepad1.back){
+// while(Math.abs(currentAngle()-initialAngle)>=5){
+// if(currentAngle()-initialAngle>0){
+// leftFront.setDirection(DcMotor.Direction.FORWARD);
+// leftBack.setDirection(DcMotor.Direction.FORWARD);
+// rightFront.setDirection(DcMotor.Direction.FORWARD);
+// rightBack.setDirection(DcMotor.Direction.FORWARD);
+// leftFront.setPower(.1);
+// leftBack.setPower(.1);
+// rightFront.setPower(.1);
+// rightBack.setPower(.1);
+// }
+// else{
+// leftFront.setDirection(DcMotor.Direction.REVERSE);
+// leftBack.setDirection(DcMotor.Direction.REVERSE);
+// rightFront.setDirection(DcMotor.Direction.REVERSE);
+// rightBack.setDirection(DcMotor.Direction.REVERSE);
+// leftFront.setPower(.1);
+// leftBack.setPower(.1);
+// rightFront.setPower(.1);
+// rightBack.setPower(.1);
+// }
+// }
+// }
+// }
 
 
-        /*if(gamepad1.b && (claw.getPosition() == 1))
-        {
-            claw.setPosition(1);
-        }
-        if(gamepad1.b && (claw.getPosition() == 0))
-        {
-            claw.setPosition(0);
-        }*/
-        if(gamepad1.b)
-        {
-            claw.setPosition(0);
-        }
-        else
-        {
-            claw.setPosition(1);
-        }
-    }
 
     public void toggleHolder(){// not really useful, just to make it possible to toggle the holder if needed. KINDA WORKS
-        if(gamepad1.dpad_down && (holder.getPosition() < 1))
+        if(gamepad1.dpad_up)
         {
             holder.setPosition(1);
         }
-        if(gamepad1.dpad_down && (holder.getPosition() > 0))
+        if(gamepad1.dpad_down)
         {
             holder.setPosition(0);
         }
     }
 
     public void armTravel(){ // controls arm WORKS
-        if(gamepad1.x){
-            arm.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            arm.setPower(0.8);
-        } else if (gamepad1.y){
-            arm.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            arm.setPower(-0.8);
-        } else {
-            arm.setTargetPosition(arm.getCurrentPosition());
-            arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-            arm.setPower(0.8);
+
+
+        if(!arm.isBusy()) {
+            if (gamepad1.y) {
+                if(armPos == 0) {
+                    arm.setTargetPosition(-2268);
+                    arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                    arm.setPower(-.9);
+                    arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                    armPos = 1;
+                    clawState = true;
+                }
+                if(armPos == 0.5){
+                    arm.setTargetPosition(-756);
+                    arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                    arm.setPower(-.9);
+                    arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                    armPos = 1;
+                    clawState = true;
+                }
+            }
+
+            if(gamepad1.x){
+                if(armPos == 1) {
+                    clawmove.reset();
+                    claw.setPosition(1);
+                    clawReady = true;
+                    clawState = false;
+
+                }
+
+            }
+            if(gamepad1.b){
+                if(armPos == 0){
+                    arm.setTargetPosition(-1512);
+                    arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                    arm.setPower(-.9);
+                    arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                    armPos = 0.5;
+                    clawState = true;
+                }
+            }
+
+
+        }
+        if(clawState && !arm.isBusy()){
+            claw.setPosition(0);
+        }
+        if(clawReady){
+            if(clawmove.milliseconds() > 800){
+                arm.setTargetPosition(2268);
+                arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                arm.setPower(.9);
+                arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                armPos = 0;
+                armmove = false;
+                clawReady = false;
+            }
         }
     }
 
-    public boolean checkB()
+
+
+        public boolean checkB()
     {
 
         if (currentB) previousB = true;
@@ -393,7 +385,7 @@ public class TeleOP extends OpMode {
         }
         return false;
     }
-//    public double currentAngle() {
-//        return imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES).firstAngle;
-//    }
+// public double currentAngle() {
+// return imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES).firstAngle;
+// }
 }
