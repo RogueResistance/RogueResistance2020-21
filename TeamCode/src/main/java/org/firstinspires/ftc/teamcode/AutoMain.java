@@ -1,4 +1,3 @@
-
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -25,27 +24,77 @@ import org.openftc.easyopencv.OpenCvInternalCamera;
 import org.openftc.easyopencv.OpenCvPipeline;
 
 import java.util.Timer;
-
+//import gayness
 @Autonomous
 public class AutoMain extends LinearOpMode {
     private DcMotorEx leftFront, rightFront, leftBack, rightBack, arm, transfer, intake, shooter;
     private Servo claw, flicker, holder;
     private DcMotorEx[] motors;
     private final double TPI = 33.5625;
+    private int scenario;
     OpenCvInternalCamera phoneCam;
     AutoMain.UltimateGoalDeterminationPipeline pipeline;
     private int distance;
+    private int x;
+    private int y;
 
     @Override
     public void runOpMode() throws InterruptedException  { //Load Zone B
         initialize();
-        //moveBot(1,1,2,2,1, .6,true);
+
+        moveBot(1,1,2,2,1, .6,true);
         moveBot(1,1,1,1,60, .6, true); //forward
-        moveBot(1,2,2,1,15, .6, true);
+        updateY(60);
+        moveBot(1,2,2,1,8, .6, true); //strafe right
+        updateX(8);
         yeetRing();
-        moveBot(1,1,1,1,15, .6, true);
-        moveBot(2,1,2,1,-9, .6, true);
-        setDownWobbler();
+        updateTelemetry();
+        if(scenario == 0) //zone A
+        {
+           moveBot(1, 1, 1, 1, 15, .6, true); //forward
+            updateY(15);
+
+            moveBot(2, 1, 2, 1, -16, .6, true); //turn
+            //x += -16;
+            armTravel();
+            updateTelemetry();
+        }
+        if(scenario == 1) { //zone B
+            moveBot(1, 1, 1, 1, 18, .6, true); //forward0
+            updateY(18);
+            moveBot(1,2,2,1,18, .6, true); //strafe right
+            updateX(18);
+            armTravel();
+            updateTelemetry();
+        }
+        if(scenario == 4){ //zone C
+            moveBot(1,2,2,1,-11, .6, true); //strafe left
+            updateX(-11);
+            moveBot(1,2,1,2,1,.6,true);
+            moveBot(1, 1, 1, 1, 48, .6, true); //forward
+            updateY(48);
+            armTravel();
+            moveBot(1, 1, 1, 1, -36, .6, true); //backward
+            updateY(-36);
+            updateTelemetry();
+        }
+
+
+        updateTelemetry();
+        // Target position is x:7 y: 60
+
+       // int currentX = getX();
+        //int currentY = getY();
+
+        int currentY = 60 - getY();
+        int currentX = 20 - getX();
+        moveBot(1, 1, 1, 1, currentY, .6, true); //forward
+        moveBot(1,2,2,1, currentX, .6, true); //strafe left
+        moveBot(2, 1, 2, 1, -5, .6, true); //turn
+        moveBot(1, 1, 1, 1, -15, .6, true); //forward
+
+
+        claw.setPosition(1);
 
 
         //0 Void 1 Forward 2 Reverse
@@ -66,8 +115,32 @@ public class AutoMain extends LinearOpMode {
 
     }
 
+    public void updateTelemetry(){
+        telemetry.addData("X", getX());
+        telemetry.addData("Y", getY());
+        telemetry.update();
+    }
+
+    public void updateX(int pos){
+        x += pos;
+    }
+
+    public void updateY(int pos){
+        y += pos;
+    }
+
+    public int getX(){
+        return x;
+    }
+
+    public int getY(){
+        return y;
+    }
+
     public void initialize() {
         //Even if I'm not using it, I have to map it because it is mapped on the bot.
+        x = 0;
+        y = 0;
         leftFront = (DcMotorEx) hardwareMap.dcMotor.get("leftFrontDrive");
         leftBack = (DcMotorEx) hardwareMap.dcMotor.get("leftRearDrive");
         rightFront = (DcMotorEx) hardwareMap.dcMotor.get("rightFrontDrive");
@@ -86,15 +159,27 @@ public class AutoMain extends LinearOpMode {
         claw.setPosition(1);
         flicker.setPosition(.7);
         phoneCam.setViewportRenderingPolicy(OpenCvCamera.ViewportRenderingPolicy.OPTIMIZE_VIEW);
-
         phoneCam.openCameraDeviceAsync(() ->{
             phoneCam.startStreaming(320, 240, OpenCvCameraRotation.SIDEWAYS_LEFT);
         });
         while(!opModeIsActive()){
             telemetry.addData("Analysis", pipeline.getAnalysis());
             telemetry.addData("Position", pipeline.position);
+            updateTelemetry();
             telemetry.update();
-
+            scenario = 1;
+            if(pipeline.getPosition() == UltimateGoalDeterminationPipeline.RingPosition.NONE) //zone A
+            {
+                scenario = 0;
+            }
+            if(pipeline.getPosition() == UltimateGoalDeterminationPipeline.RingPosition.ONE) //zone A
+            {
+                scenario = 1;
+            }
+            if(pipeline.getPosition() == UltimateGoalDeterminationPipeline.RingPosition.FOUR) //zone A
+            {
+                scenario = 4;
+            }
             sleep(50);
         }
         motors = new DcMotorEx[]{leftFront, rightFront, leftBack, rightBack};
@@ -107,10 +192,9 @@ public class AutoMain extends LinearOpMode {
             else
                 motor.setDirection(DcMotor.Direction.FORWARD);
         }
-
         waitForStart();
     }
-
+//from retard import idiot
     /**
      * @param power
      * @param distance inchies so you will have to convert to tics
@@ -204,7 +288,7 @@ public class AutoMain extends LinearOpMode {
 
     public void yeetRing() throws InterruptedException { //NEEDS TO BE REVAMPED TO INCLUDE FLICKER AND PARAMETER FOR RINGS
         shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        shooter.setPower(-.8);
+        shooter.setPower(-.75);
         ElapsedTime shooterTime = new ElapsedTime();
         int flick = 3000;
         //intake.setPower(-.5);
@@ -227,19 +311,6 @@ public class AutoMain extends LinearOpMode {
         shooter.setPower(0);
     }
 
-    public void setDownWobbler() throws InterruptedException {
-        ElapsedTime wobbler = new ElapsedTime();
-        arm.setPower(-.5);
-        while(wobbler.milliseconds() <= 3000){
-            heartbeat();
-        }
-        claw.setPosition(0);
-        arm.setPower(.3);
-        while(wobbler.milliseconds() <= 5000){
-            heartbeat();
-        }
-        arm.setPower(0);
-    }
 
     public void heartbeat() throws InterruptedException {
         //if opMode is stopped, will throw and catch an InterruptedException rather than resulting in red text and program crash on phone
@@ -247,7 +318,29 @@ public class AutoMain extends LinearOpMode {
             throw new InterruptedException();
         }
     }
+    public void armTravel() throws InterruptedException {
+        ElapsedTime wobbler = new ElapsedTime();
+        arm.setTargetPosition(-2268);
+        arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        arm.setPower(-1);
+        arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        while(wobbler.milliseconds() <= 3000){
+            heartbeat();
+            if(!arm.isBusy())
+            {
+                claw.setPosition(0);
+            }
+        }
+        arm.setTargetPosition(2268);
+        arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        arm.setPower(-1);
+        arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        while(arm.isBusy()){
+            heartbeat();
+        }
+        arm.setPower(0);
 
+    }
 
 
 
@@ -264,13 +357,13 @@ public class AutoMain extends LinearOpMode {
         static final Scalar BLUE = new Scalar(0, 0, 255);
         static final Scalar GREEN = new Scalar(0, 255, 0);
 
-        static final Point REGION1_TOPLEFT_ANCHOR_POINT = new Point(100, 0);//150
+        static final Point REGION1_TOPLEFT_ANCHOR_POINT = new Point(90, 80);
 
-        static final int REGION_WIDTH = 90;
-        static final int REGION_HEIGHT = 90;
+        static final int REGION_WIDTH = 10;
+        static final int REGION_HEIGHT = 25;
 
-        final int FOUR_RING_THRESHOLD = 160;
-        final int ONE_RING_THRESHOLD = 140;
+        final int FOUR_RING_THRESHOLD = 150;
+        final int ONE_RING_THRESHOLD = 135;
 
         Point region1_pointA = new Point(
                 REGION1_TOPLEFT_ANCHOR_POINT.x,
