@@ -18,6 +18,7 @@ public class TeleOP extends OpMode {
     private boolean direction, togglePrecision;
     private double factor;
     boolean currentB = false;
+    boolean driveOne = false;
     boolean previousB = false;
     boolean currentRB = false;
     boolean previousRB = false;
@@ -30,7 +31,7 @@ public class TeleOP extends OpMode {
     private BNO055IMU imu;
     private ElapsedTime runtime;
     private double servo;
-    double shooterPower = .80;
+    double shooterPower = .75;
     boolean shotMode = false;
     boolean clawReady = false;
     ElapsedTime timer = new ElapsedTime();
@@ -92,11 +93,9 @@ public class TeleOP extends OpMode {
 
     @Override
     public void loop() {
-
+        //if(!leftFront.isBusy()&&!leftBack.isBusy()&&!rightFront.isBusy()&&!rightBack.isBusy()) {
         //Increasing the power gradually
         //int power = (DcMotorSimple) arm.getPower();
-
-
 
 
         //toggles precision mode if the right stick button is pressed
@@ -116,11 +115,7 @@ public class TeleOP extends OpMode {
         final double rightRearPower = Range.clip(x * Math.cos(powerAngle) - rightX, -1.0, 1.0);
 
 
-
         //Set the position of arm to counter clockwise/clockwise
-
-
-
 
 
         //neutral is .5, right trigger .5 to 1, left trigger is 0 to .5 What???
@@ -137,63 +132,93 @@ public class TeleOP extends OpMode {
 
         //Incrementing the power by 0.0 EVERY TIME you call this function
         //Incrementing the power by 0.0 EVERY TIME you call this function
-// for jon in jon on jon
+        // for jon in jon on jon
 
         //Updating the power of the motors
- /* arm.setPower(power);
- shooter.setPower(power);
- intake.setPower(power);
- transfer.setPower(power); */
+     /* arm.setPower(power);
+     shooter.setPower(power);
+     intake.setPower(power);
+     transfer.setPower(power); */
 
         //Reset the intake and transfer encoders
         precisionMode(); //check for precision mode
+        singlePlayer(); //check to see if player one takes over
         armTravel(); // move arm
         powerShot(); // toggles speed mode for flywheel
         revShoot(); // controls flywheel
         toggleIntake(); // controls intake, on off backwards
         flickRing(); // toggles flicker
         toggleHolder(); // toggles intake clip
+        armTravel2(); // second player arm function
 
 
+        //}
     }
 
-    public void revShoot(){ // controls the flywheel WORKS
-        if(gamepad1.right_trigger > .499999)
-        {
+    public void revShoot() { // controls the flywheel WORKS
+        if (gamepad1.right_trigger > .499999) {
             shooter.setPower(-shooterPower);
-        }
-        else
-        {
+        } else {
             shooter.setPower(0);
         }
     }
 
-    public void powerShot(){ // lowers flywheel speed
-        if(gamepad1.dpad_left && !shotMode){
-            shooterPower = .81;
-            shotMode = true;
-        } else if(gamepad1.dpad_right && shotMode){
-            shooterPower = .61;
-            shotMode = false;
+    public void powerShot() { // lowers flywheel speed
+        if(driveOne) {
+            if (gamepad1.dpad_left && !shotMode) {
+                shooterPower = .65;
+                shotMode = true;
+            } else if (gamepad1.dpad_right && shotMode) {
+                shooterPower = .75;
+                shotMode = false;
+            }
+        }
+        if(!driveOne) {
+            if (gamepad1.y && !shotMode) {
+                shooterPower = .65;
+                shotMode = true;
+            } else if (gamepad1.x && shotMode) {
+                shooterPower = .75;
+                shotMode = false;
+            }
         }
     }
 
-    public void toggleIntake(){ // controls intake and transfer
-        if(gamepad1.left_trigger > .499999){
-            intake.setPower(-1);
-            transfer.setPower(1);
+    public void toggleIntake() { // controls intake and transfer
+       if(driveOne) {
+           if (gamepad1.left_trigger > .499999) {
+               intake.setPower(-1);
+               transfer.setPower(1);
+           } else if (gamepad1.left_bumper) {
+               intake.setPower(1);
+               transfer.setPower(-1);
+           } else {
+               intake.setPower(0);
+               transfer.setPower(0);
+           }
+       } else if(!driveOne){
+           if (gamepad2.left_trigger > .499999) {
+               intake.setPower(-1);
+               transfer.setPower(1);
+           } else if (gamepad2.left_bumper) {
+               intake.setPower(1);
+               transfer.setPower(-1);
+           } else {
+               intake.setPower(0);
+               transfer.setPower(0);
+           }
+       }
+    }
+    public void singlePlayer() {
+        if(gamepad1.start){
+            driveOne = true;
         }
-        else if(gamepad1.left_bumper){
-            intake.setPower(1);
-            transfer.setPower(-1);
-        }
-        else{
-            intake.setPower(0);
-            transfer.setPower(0);
+        if(gamepad1.back){
+            driveOne = false;
         }
     }
 
-    public void flickRing(){ // controls flicker
+    public void flickRing() { // controls flicker
  /* if (gamepad1.a && !servoMoving) {
  timer.reset();
  flicker.setPosition(1);
@@ -205,16 +230,13 @@ public class TeleOP extends OpMode {
  servoMoving = false;
  }
 */
-  /*      if(gamepad1.a)
-        {
+        if (gamepad1.a) {
             flicker.setPosition(.35);
-        }
-        else
-        {
+        } else {
             flicker.setPosition(.64);
         } // use this code if the above code refuses to work.
-*/
-        if (gamepad1.a){
+
+     /*   if (gamepad1.a){
            flick.reset();
 
            flicktime = true;
@@ -242,14 +264,13 @@ public class TeleOP extends OpMode {
 
 
         }
-
-
+*/
     }
-    public void precisionMode(){ // controls precision mode
+
+    public void precisionMode() { // controls precision mode
         if (gamepad2.left_stick_button || gamepad1.left_stick_button) {
             togglePrecision = true;
-        }
-        else if (gamepad2.right_stick_button || gamepad1.right_stick_button) {
+        } else if (gamepad2.right_stick_button || gamepad1.right_stick_button) {
             togglePrecision = false;
         }
     }
@@ -282,69 +303,75 @@ public class TeleOP extends OpMode {
 // }
 
 
-
-    public void toggleHolder(){// not really useful, just to make it possible to toggle the holder if needed. KINDA WORKS
-        if(gamepad1.dpad_up)
-        {
+    public void toggleHolder() {// not really useful, just to make it possible to toggle the holder if needed. KINDA WORKS
+        if(driveOne) {
+            if (gamepad1.dpad_up) {
+                holder.setPosition(1);
+            }
+            if (gamepad1.dpad_down) {
+                holder.setPosition(0);
+            }
+        }
+        if (gamepad2.dpad_up) {
             holder.setPosition(1);
         }
-        if(gamepad1.dpad_down)
-        {
+        if (gamepad2.dpad_down) {
             holder.setPosition(0);
         }
     }
 
-    public void armTravel(){ // controls arm WORKS
+    public void armTravel() { // controls arm WORKS
+    if(driveOne) {
 
-
-        if(!arm.isBusy()) {
-            if (gamepad1.y) {
-                if(armPos == 0) {
-                    arm.setTargetPosition(-2268);
-                    arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                    arm.setPower(-.9);
-                    arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-                    armPos = 1;
-                    clawState = true;
-                }
-                if(armPos == 0.5){
-                    arm.setTargetPosition(-756);
-                    arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                    arm.setPower(-.9);
-                    arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-                    armPos = 1;
-                    clawState = true;
-                }
+        if (gamepad1.y) {
+            if (armPos == 0) {
+                arm.setTargetPosition(-2268);
+                arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                arm.setPower(-.9);
+                arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                armPos = 1;
+                clawState = true;
+                clawmove.reset();
             }
+            if (armPos == 0.5) {
+                arm.setTargetPosition(-756);
+                arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                arm.setPower(-.9);
+                arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                armPos = 1;
+                clawState = true;
+                clawmove.reset();
+            }
+        }
 
-            if(gamepad1.x){
-                if(armPos == 1) {
-                    clawmove.reset();
-                    claw.setPosition(1);
-                    clawReady = true;
-                    clawState = false;
-
-                }
+        if (gamepad1.x) {
+            if (armPos == 1) {
+                clawmove.reset();
+                claw.setPosition(1);
+                clawReady = true;
+                clawState = false;
 
             }
-            if(gamepad1.b){
-                if(armPos == 0){
-                    arm.setTargetPosition(-1512);
-                    arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                    arm.setPower(-.9);
-                    arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-                    armPos = 0.5;
-                    clawState = true;
-                }
-            }
-
 
         }
-        if(clawState && !arm.isBusy()){
+        if (gamepad1.b) {
+            if (armPos == 0) {
+                arm.setTargetPosition(-1512);
+                arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                arm.setPower(-.9);
+                arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                armPos = 0.5;
+                clawState = true;
+                clawmove.reset();
+            }
+        }
+
+
+        if (clawState && clawmove.milliseconds() > 1000) {
             claw.setPosition(0);
         }
-        if(clawReady){
-            if(clawmove.milliseconds() > 800){
+        if (clawReady) {
+            if (clawmove.milliseconds() > 800) {
                 arm.setTargetPosition(2268);
                 arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
                 arm.setPower(.9);
@@ -354,11 +381,34 @@ public class TeleOP extends OpMode {
                 clawReady = false;
             }
         }
+        }
     }
 
+    public void armTravel2(){
+        if(!driveOne){
+            if(gamepad2.y){
+                arm.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                arm.setPower(-.6);
+            }
+            else if(gamepad2.x){
+                arm.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                arm.setPower(.6);
+            } else {
+                arm.setPower(0);
+                //arm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                //arm.setTargetPosition(arm.getCurrentPosition());
+                //arm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                //arm.setPower(1);
+            }
+            if (gamepad2.right_trigger > .499999) {
+                claw.setPosition(0);
+            } else {
+                claw.setPosition(1);
+            }
 
-
-        public boolean checkB()
+        }
+    }
+    public boolean checkB()
     {
 
         if (currentB) previousB = true;
@@ -385,6 +435,75 @@ public class TeleOP extends OpMode {
         }
         return false;
     }
+//    public void powerShots(){ //needs testing
+//        if(gamepad1.start){
+//            //use bettermovebot if possible. WIP
+//            moveBot(1,2,2,1,44,.6,false); //will be to better movement updated later
+//            shooter.setPower(-shooterPower);
+//            flicker.setPosition(0);
+//            flicker.setPosition(0.7);
+//            shooter.setPower(0);
+//            moveBot(1,2,2,1,8,.6,false); //will be updated to better movement later
+//            shooter.setPower(-shooterPower);
+//            flicker.setPosition(0);
+//            flicker.setPosition(0.7);
+//            shooter.setPower(0);
+//            moveBot(1,2,2,1,8,.6,false); //will be updated to better movement later
+//            shooter.setPower(-shooterPower);
+//            flicker.setPosition(0);
+//            flicker.setPosition(0.7);
+//            shooter.setPower(0);
+//        }
+//    }
+
+//    public void moveBot(int leftT, int rightT, int leftB, int rightB, int distance, double power, boolean withIntake){
+//        //moveBot(1, 1, 2, 2, -24, .60, true); //Forwward
+//        //turnBot(2, 2, 1, 1, -24, .60); //Backward
+//        //turnBot(2, 1, 2, 1, 30, .60); //Strafe right
+//        //turnBot(1, 2, 1, 2, 0, .6) /Strafe left
+//        if (leftT == 1) {
+//            leftFront.setDirection(DcMotor.Direction.FORWARD);
+//        } else if(leftT == 2){
+//            leftFront.setDirection(DcMotor.Direction.REVERSE);
+//        }
+//
+//        if (leftB == 1) {
+//            leftBack.setDirection(DcMotor.Direction.FORWARD);
+//        } else if(leftB == 2){
+//            leftBack.setDirection(DcMotor.Direction.REVERSE);
+//        }
+//
+//        if (rightT == 2) {
+//            rightFront.setDirection(DcMotor.Direction.FORWARD);
+//        } else if(rightT == 1){
+//            rightFront.setDirection(DcMotor.Direction.REVERSE);
+//        }
+//
+//        if (rightB == 2) {
+//            rightBack.setDirection(DcMotor.Direction.FORWARD);
+//        } else if(rightT == 1){
+//            rightBack.setDirection(DcMotor.Direction.REVERSE);
+//        }
+//
+//        /*if(withIntake) {
+//            while (shooterTime.milliseconds() <= 5000) {
+//                intake.setPower(.5);
+//                transfer.setPower(1);
+//                heartbeat();
+//            }
+//        }*/
+//
+//        //Moves the robot
+//        int travel = (int)(distance * TPI);
+//        for (DcMotorEx motor : motors) {
+//            motor.setTargetPosition(travel);
+//            motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+//            motor.setPower(power);
+//            motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+//        }
+//        //intake.setPower(0);
+//        // transfer.setPower(0);
+//    }
 // public double currentAngle() {
 // return imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES).firstAngle;
 // }
